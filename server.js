@@ -45,36 +45,54 @@ async function callGemini(prompt) {
 
   for (const model of MODELS) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const requestPayload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+    };
+
+    console.log(`\n=== GEMINI API CALL ===`);
+    console.log(`Model: ${model}`);
+    console.log(`Request Payload:`, JSON.stringify(requestPayload, null, 2));
+
     try {
       const response = await fetch(url, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
-        }),
+        body: JSON.stringify(requestPayload),
       });
+
+      console.log(`Response Status: ${response.status}`);
+      console.log(`Response StatusText: ${response.statusText}`);
 
       if (response.status === 429 || response.status === 503) {
         const t = await response.text();
+        console.log(`Full Response Body:`, t);
         console.warn(`[${model}] quota/unavailable (${response.status}) — trying next`);
+        console.log(`=======================\n`);
         lastError = `${model}: HTTP ${response.status}`;
         continue;
       }
       if (!response.ok) {
         const t = await response.text();
+        console.log(`Full Response Body:`, t);
         console.warn(`[${model}] error ${response.status} — trying next`);
+        console.log(`=======================\n`);
         lastError = `${model}: HTTP ${response.status}`;
         continue;
       }
 
-      const data = await response.json();
+      const t = await response.text();
+      console.log(`Full Response Body:`, t);
+      const data = JSON.parse(t);
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       console.log(`[${model}] ✅ success (${text.length} chars)`);
+      console.log(`=======================\n`);
       return text;
 
     } catch (err) {
-      console.warn(`[${model}] network error: ${err.message}`);
+      console.error(`[${model}] network error: ${err.message}`);
+      console.log(`=======================\n`);
       lastError = err.message;
     }
   }

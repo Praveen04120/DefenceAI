@@ -6,7 +6,7 @@ const path    = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const API_KEY = process.env.API_KEY;
 
 // ─── Correct Gemini model names (v1beta API) ──────────────────────────────────
 const MODELS = [
@@ -44,7 +44,7 @@ async function callGemini(prompt) {
   let lastError = null;
 
   for (const model of MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
     
     const requestPayload = {
       contents: [{ parts: [{ text: prompt }] }],
@@ -571,7 +571,7 @@ function scheduleMidnightRefresh() {
 
 app.listen(PORT, async () => {
   console.log(`\n🛡️  DefenceAI Server running on http://localhost:${PORT}`);
-  console.log(`   API Key  : ${GEMINI_API_KEY ? '✅ ' + GEMINI_API_KEY.slice(0,12) + '...' : '❌ Missing'}`);
+  console.log(`   API Key  : ${API_KEY ? '✅ ' + API_KEY.slice(0,12) + '...' : '❌ Missing'}`);
   console.log(`   Models   : ${MODELS.join(' → ')}`);
   console.log(`   Wars     : ✅ Static data (${WARS_DATA.wars.length} conflicts, no API calls)`);
   console.log(`   Cache    : ✅ Daily (fetched once, served to all users)\n`);

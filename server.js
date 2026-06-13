@@ -10,10 +10,10 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // ─── Correct Gemini model names (v1beta API) ──────────────────────────────────
 const MODELS = [
+  'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash-8b-latest',
+  'gemini-flash-latest'
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════

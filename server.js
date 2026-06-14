@@ -299,7 +299,25 @@ app.post('/api/chat', async (req, res) => {
 
   const queryNorm = message.trim().toLowerCase();
 
-  // ─── Step 1: Search local defence_knowledge ────────────────
+  // ─── Step 1: Greeting & Small-Talk detection (Fast Path) ─────
+  const greetings = ['hi', 'hello', 'hey', 'hiya', 'namaste', 'namaskar', 'good morning', 'good evening'];
+  const thanks = ['thanks', 'thank you', 'thanks a lot'];
+  const identity = ['who are you', 'who are you?', 'what are you', 'what is defenceai'];
+
+  if (greetings.includes(queryNorm)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.send('Hi! How can I assist you today? Ask me about defence affairs, military history, geopolitics, or global security.');
+  }
+  if (thanks.includes(queryNorm)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.send("You're very welcome! Let me know if you have any other questions about defence or geopolitics.");
+  }
+  if (identity.includes(queryNorm)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.send('I am DefenceAI, an advanced intelligence platform specialised in military affairs, geopolitics, and defence technology. Ask me anything about wars, weapons, or global security!');
+  }
+
+  // ─── Step 2: Search local defence_knowledge ────────────────
   try {
     const { data: localResults } = await supabase
       .from('defence_knowledge')
@@ -338,7 +356,7 @@ app.post('/api/chat', async (req, res) => {
     console.warn('Knowledge DB search failed:', dbErr.message);
   }
 
-  // ─── Step 2: Check search_cache in Supabase ────────────────
+  // ─── Step 3: Check search_cache in Supabase ────────────────
   try {
     const { data: cached } = await supabase
       .from('search_cache')
@@ -352,13 +370,6 @@ app.post('/api/chat', async (req, res) => {
       return res.send(cachedAnswer);
     }
   } catch (_) {}
-
-  // ─── Step 3: Greeting detection (no AI needed) ─────────────
-  const greetings = ['hi', 'hello', 'hey', 'hiya', 'namaste', 'namaskar'];
-  if (greetings.includes(queryNorm)) {
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    return res.send('Hi! How can I assist you today? Ask me about defence affairs, military history, geopolitics, or global security.');
-  }
 
   // ─── Step 4: Call Gemini ───────────────────────────────────
   const today = new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });

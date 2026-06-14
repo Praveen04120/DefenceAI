@@ -284,18 +284,24 @@ function createNewsCard(item, index, type) {
   card.className = 'news-card';
   card.style.animationDelay = `${index * 0.05}s`;
 
+  window.allNewsItems = window.allNewsItems || {};
+  if (item.id) window.allNewsItems[item.id] = item;
+
   const cardId = `nc-${type}-${item.id || index}`;
   const time   = item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+
+  if (item.id) card.setAttribute('onclick', `openNewsModal('${item.id}')`);
 
   card.innerHTML = `
     <div class="news-card-content">
       <div class="news-card-meta">
         <span class="news-source-badge">${escHtml(item.source || 'DefenceAI')}</span>
         ${time ? `<span class="news-time">🕐 ${time}</span>` : ''}
-        <span class="news-cat-chip news-cat-${item.category}">${item.category === 'national' ? '🇮🇳 National' : '🌍 International'}</span>
+        ${item.category ? `<span class="news-cat-chip news-cat-${item.category}">${item.category === 'national' ? '🇮🇳 National' : '🌍 International'}</span>` : ''}
       </div>
       <h3 class="news-card-title">${escHtml(item.title || 'Untitled')}</h3>
       <p class="news-card-summary">${escHtml(item.summary || '')}</p>
+      ${item.id ? `<span class="read-more-btn">Read Full Analysis →</span>` : ''}
     </div>`;
   return card;
 }
@@ -486,6 +492,98 @@ function closeKnowledgeModal() {
   document.body.style.overflow = '';
 }
 
+function openNewsModal(id) {
+  const item = window.allNewsItems && window.allNewsItems[id];
+  if (!item) return;
+
+  const modal = getEl('newsModal');
+  const body = getEl('newsModalBody');
+  if (!modal || !body) return;
+
+  const time = item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+  const isAI = !item.category;
+  const tagHtml = (tags) => {
+    try {
+      const arr = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      if (!Array.isArray(arr) || !arr.length) return '';
+      return arr.map(t => `<span class="news-tag">${escHtml(t)}</span>`).join('');
+    } catch(e) { return ''; }
+  };
+  const actorHtml = (actors) => {
+    try {
+      const arr = typeof actors === 'string' ? JSON.parse(actors) : actors;
+      if (!Array.isArray(arr) || !arr.length) return '';
+      return arr.map(a => `<span class="news-actor-tag">${escHtml(a)}</span>`).join('');
+    } catch(e) { return ''; }
+  };
+
+  const hasDetails = !!item.full_content;
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <span class="kcat-badge" style="background:var(--forest-light); color:var(--surface)">
+        ${isAI ? '🤖 AI News' : (item.category === 'national' ? '🇮🇳 National' : '🌍 International')}
+      </span>
+      ${time ? `<span class="news-time" style="color:var(--text-muted); margin-left:12px; font-size:0.85rem">🕐 ${time}</span>` : ''}
+    </div>
+    <h3>${escHtml(item.title)}</h3>
+    <div class="modal-section" style="margin-bottom: 12px;">
+      <span class="news-source-badge">${escHtml(item.source || 'DefenceAI')}</span>
+    </div>
+    
+    ${hasDetails ? `
+      <div class="modal-section">
+        <p>${md2html(item.full_content)}</p>
+      </div>
+      
+      ${item.strategic_significance ? `
+        <div class="modal-section">
+          <strong style="color:var(--khaki-light); display:block; margin-bottom:8px;">Strategic Significance</strong>
+          <p>${md2html(item.strategic_significance)}</p>
+        </div>
+      ` : ''}
+      
+      ${item.key_actors || item.related_countries || item.tags ? `
+        <div class="modal-section" style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+          ${item.key_actors ? `
+            <div style="margin-bottom:12px">
+              <span style="font-size:0.85rem; color:#888; display:block; margin-bottom:4px;">Key Actors</span>
+              <div class="news-tags-container">${actorHtml(item.key_actors)}</div>
+            </div>
+          ` : ''}
+          ${item.related_countries ? `
+            <div style="margin-bottom:12px">
+              <span style="font-size:0.85rem; color:#888; display:block; margin-bottom:4px;">Related Countries</span>
+              <div class="news-tags-container">${actorHtml(item.related_countries)}</div>
+            </div>
+          ` : ''}
+          ${item.tags ? `
+            <div>
+              <span style="font-size:0.85rem; color:#888; display:block; margin-bottom:4px;">Tags</span>
+              <div class="news-tags-container">${tagHtml(item.tags)}</div>
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+    ` : `
+      <div class="modal-section">
+        <p>${escHtml(item.summary)}</p>
+      </div>
+      <div class="empty-state" style="margin-top: 24px;">
+        Detailed analysis is not available for archived news. Future articles will contain full reports.
+      </div>
+    `}
+  `;
+
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeNewsModal() {
+  getEl('newsModal')?.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
 // ═══════════════════════════════════════════════════════════════
 // AI NEWS LOADER
 // ═══════════════════════════════════════════════════════════════
@@ -527,7 +625,12 @@ function createAINewsCard(item, index) {
   card.className = 'ai-news-card';
   card.style.animationDelay = `${index * 0.06}s`;
 
+  window.allNewsItems = window.allNewsItems || {};
+  if (item.id) window.allNewsItems[item.id] = item;
+
   const time = item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+
+  if (item.id) card.setAttribute('onclick', `openNewsModal('${item.id}')`);
 
   card.innerHTML = `
     <div class="ai-news-icon">🤖</div>
@@ -538,6 +641,7 @@ function createAINewsCard(item, index) {
       </div>
       <h3 class="ai-news-title">${escHtml(item.title || 'Untitled')}</h3>
       <p class="ai-news-summary">${escHtml(item.summary || '')}</p>
+      ${item.id ? `<span class="read-more-btn">Read Full Analysis →</span>` : ''}
     </div>`;
   return card;
 }
@@ -646,8 +750,17 @@ function initEventListeners() {
   getEl('knowledgeModal')?.addEventListener('click', e => {
     if (e.target.id === 'knowledgeModal') closeKnowledgeModal();
   });
+  
+  getEl('newsModalClose')?.addEventListener('click', closeNewsModal);
+  getEl('newsModal')?.addEventListener('click', e => {
+    if (e.target.id === 'newsModal') closeNewsModal();
+  });
+
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeKnowledgeModal();
+    if (e.key === 'Escape') {
+      closeKnowledgeModal();
+      closeNewsModal();
+    }
   });
 }
 
@@ -672,7 +785,9 @@ document.addEventListener('DOMContentLoaded', init);
 
 // ─── Global function exposures (for inline onclick) ───────────
 window.loadNews        = loadNews;
-window.loadKnowledge   = loadKnowledge;
+window.loadNews        = loadNews;
 window.loadAINews      = loadAINews;
-window.openKnowledgeModal = openKnowledgeModal;
+window.loadKnowledge   = loadKnowledge;
 window.closeKnowledgeModal = closeKnowledgeModal;
+window.openNewsModal   = openNewsModal;
+window.closeNewsModal  = closeNewsModal;

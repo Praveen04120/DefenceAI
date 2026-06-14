@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS daily_news (
   source      TEXT DEFAULT 'DefenceAI',
   category    TEXT CHECK (category IN ('national', 'international')) NOT NULL,
   fetch_date  DATE NOT NULL,
+  full_content TEXT,
+  strategic_significance TEXT,
+  key_actors JSONB,
+  related_countries JSONB,
+  tags JSONB,
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_daily_news_fetch_date ON daily_news (fetch_date DESC);
@@ -24,6 +29,11 @@ CREATE TABLE IF NOT EXISTS ai_news (
   summary     TEXT NOT NULL,
   source      TEXT DEFAULT 'DefenceAI',
   fetch_date  DATE NOT NULL,
+  full_content TEXT,
+  strategic_significance TEXT,
+  key_actors JSONB,
+  related_countries JSONB,
+  tags JSONB,
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ai_news_fetch_date ON ai_news (fetch_date DESC);

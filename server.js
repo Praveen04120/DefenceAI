@@ -442,6 +442,11 @@ Return ONLY this JSON (no explanation, no markdown code blocks):
     {
       "title": "News headline (max 15 words)",
       "summary": "3-4 sentence factual summary of the news item",
+      "full_content": "Detailed 3-4 paragraph article explaining the event, context, and implications.",
+      "strategic_significance": "A paragraph explaining why this matters geopolitically or militarily.",
+      "key_actors": ["Actor 1", "Actor 2"],
+      "related_countries": ["Country 1", "Country 2"],
+      "tags": ["Tag1", "Tag2"],
       "source": "Source name (e.g. ANI, PTI, The Hindu)",
       "category": "national"
     }
@@ -450,6 +455,11 @@ Return ONLY this JSON (no explanation, no markdown code blocks):
     {
       "title": "International defence/geopolitics headline (max 15 words)",
       "summary": "3-4 sentence factual summary",
+      "full_content": "Detailed 3-4 paragraph article explaining the event, context, and implications.",
+      "strategic_significance": "A paragraph explaining why this matters geopolitically or militarily.",
+      "key_actors": ["Actor 1", "Actor 2"],
+      "related_countries": ["Country 1", "Country 2"],
+      "tags": ["Tag1", "Tag2"],
       "source": "Source name",
       "category": "international"
     }

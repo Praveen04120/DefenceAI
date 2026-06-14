@@ -1777,7 +1777,7 @@ textarea { font-family: inherit; resize: none; border: none; outline: none; back
 }
 
 /* ---------------------------------------------------------------
-   DefenceAI v3.0 — New Section Styles
+   DefenceAI v3.0 ï¿½ New Section Styles
 --------------------------------------------------------------- */
 .nav-badge { font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 9999px; background: #3a5230; color: #7aad3a; letter-spacing: 0.5px; margin-left: auto; }
 .nav-badge.live { background: rgba(168,66,66,0.3); color: #e06060; animation: pulseBadge 2s ease infinite; }
@@ -1792,7 +1792,7 @@ textarea { font-family: inherit; resize: none; border: none; outline: none; back
 @keyframes fadeSlide { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
 @keyframes cardFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 .news-cards-list { display: flex; flex-direction: column; gap: 12px; }
-.news-card { background: linear-gradient(135deg,#162d18,#1c361e); border: 1px solid rgba(168,192,162,0.1); border-radius: 14px; padding: 16px 20px; transition: border-color 0.25s,transform 0.15s; animation: cardFadeIn 0.3s ease both; }
+.news-card { background: linear-gradient(135deg,#162d18,#1c361e); border: 1px solid rgba(168,192,162,0.1); border-radius: 14px; padding: 16px 20px; transition: border-color 0.25s,transform 0.15s; animation: cardFadeIn 0.3s ease both; cursor: pointer; }
 .news-card:hover { border-color: rgba(122,173,58,0.4); transform: translateX(3px); }
 .news-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .news-source-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: #1c361e; color: #7aad3a; border: 1px solid rgba(122,173,58,0.3); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -1864,4 +1864,59 @@ textarea { font-family: inherit; resize: none; border: none; outline: none; back
   .ai-news-card { flex-direction: column; }
   .ai-news-icon { width: 36px; height: 36px; font-size: 1.3rem; }
   .news-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* News Detailed View Styles */
+.read-more-btn {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: #7aad3a;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.news-card:hover .read-more-btn {
+  color: #92cd47;
+}
+#newsModalBody .modal-section {
+  margin-bottom: 24px;
+}
+#newsModalBody h3 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.2rem;
+  color: #e8f0e4;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(168,192,162,0.1);
+  padding-bottom: 6px;
+}
+#newsModalBody p {
+  font-size: 0.95rem;
+  color: #a8c0a2;
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.news-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.news-tag {
+  background: rgba(122,173,58,0.1);
+  color: #7aad3a;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid rgba(122,173,58,0.3);
+}
+.news-actor-tag {
+  background: rgba(56,189,248,0.1);
+  color: #38bdf8;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid rgba(56,189,248,0.3);
 }

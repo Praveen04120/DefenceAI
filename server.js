@@ -442,8 +442,8 @@ Return ONLY this JSON (no explanation, no markdown code blocks):
     {
       "title": "News headline (max 15 words)",
       "summary": "3-4 sentence factual summary of the news item",
-      "full_content": "Detailed 3-4 paragraph article explaining the event, context, and implications.",
-      "strategic_significance": "A paragraph explaining why this matters geopolitically or militarily.",
+      "full_content": "1 concise paragraph explaining the event and context.",
+      "strategic_significance": "1 short sentence on why this matters.",
       "key_actors": ["Actor 1", "Actor 2"],
       "related_countries": ["Country 1", "Country 2"],
       "tags": ["Tag1", "Tag2"],
@@ -455,8 +455,8 @@ Return ONLY this JSON (no explanation, no markdown code blocks):
     {
       "title": "International defence/geopolitics headline (max 15 words)",
       "summary": "3-4 sentence factual summary",
-      "full_content": "Detailed 3-4 paragraph article explaining the event, context, and implications.",
-      "strategic_significance": "A paragraph explaining why this matters geopolitically or militarily.",
+      "full_content": "1 concise paragraph explaining the event and context.",
+      "strategic_significance": "1 short sentence on why this matters.",
       "key_actors": ["Actor 1", "Actor 2"],
       "related_countries": ["Country 1", "Country 2"],
       "tags": ["Tag1", "Tag2"],
@@ -466,7 +466,7 @@ Return ONLY this JSON (no explanation, no markdown code blocks):
   ]
 }
 
-Include ALL important news. Do not limit to 10. Include every significant defence or geopolitics story from the past 24 hours. Return ONLY the JSON.`;
+Limit the output to EXACTLY 3 national news stories and 4 international news stories. Return ONLY the JSON.`;
 
   let inserted = 0;
   let source = 'gemini';
@@ -550,12 +550,17 @@ Return ONLY this JSON (no markdown code blocks):
     {
       "title": "AI/Tech headline (max 15 words)",
       "summary": "3-4 sentence factual summary covering: what happened, who is involved, why it matters for defence/AI",
+      "full_content": "1 concise paragraph explaining the event and context.",
+      "strategic_significance": "1 short sentence on why this matters.",
+      "key_actors": ["Actor 1", "Actor 2"],
+      "related_countries": ["Country 1", "Country 2"],
+      "tags": ["Tag1", "Tag2"],
       "source": "Source name"
     }
   ]
 }
 
-Include all significant stories. Return ONLY the JSON object.`;
+Limit the output to EXACTLY 4 AI news stories. Return ONLY the JSON object.`;
 
   let inserted = 0;
 

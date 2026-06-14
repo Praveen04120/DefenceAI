@@ -413,7 +413,7 @@ User query: ${message}`;
 // CRON JOB: DAILY NEWS REFRESH (called by Vercel Cron at 6 PM IST)
 // Route: POST /api/cron/news
 // ═══════════════════════════════════════════════════════════════
-app.post('/api/cron/news', requireCron, async (req, res) => {
+app.all('/api/cron/news', requireCron, async (req, res) => {
   const today = todayStr();
   console.log(`\n📡 [CRON] Daily news refresh for ${today}...`);
 
@@ -507,7 +507,7 @@ Include ALL important news. Do not limit to 10. Include every significant defenc
 // CRON JOB: AI NEWS REFRESH (called by Vercel Cron every 48hrs at 6 PM IST)
 // Route: POST /api/cron/ai-news
 // ═══════════════════════════════════════════════════════════════
-app.post('/api/cron/ai-news', requireCron, async (req, res) => {
+app.all('/api/cron/ai-news', requireCron, async (req, res) => {
   const today = todayStr();
   console.log(`\n🤖 [CRON] AI news refresh for ${today}...`);
 

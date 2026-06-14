@@ -1,49 +1,39 @@
 /* ═══════════════════════════════════════════════════════════════
-   DefenceAI — Frontend Application Logic v1.2
-   - All API calls go through /api/* backend proxy
-   - Daily cache: data fetched once/day on server, served to all users
-   - Defence & politics Q&A only
-   - Scroll fixed: natural page scroll, fixed sidebar
+   DefenceAI — Frontend Application Logic v3.0
+   Architecture:
+   - News: reads from Supabase via /api/news (tabs: National / International)
+   - Knowledge: reads from Supabase via /api/knowledge (searchable, filterable)
+   - AI News: reads from Supabase via /api/ai-news
+   - Search: local knowledge → Supabase cache → Gemini
+   - Sports section: REMOVED
 ═══════════════════════════════════════════════════════════════ */
 
 'use strict';
 
 const API_BASE = '';
 
-// ─── Sport Emoji Map ──────────────────────────────────────────
-const SPORT_ICONS = {
-  'Cricket':    '🏏', 'Football':  '⚽', 'Olympics':  '🏅',
-  'Wrestling':  '🤼', 'Boxing':    '🥊', 'Chess':     '♟️',
-  'Badminton':  '🏸', 'Hockey':    '🏑', 'Athletics': '🏃',
-  'Tennis':     '🎾', 'Shooting':  '🎯', 'default':   '🏆',
-};
-
-const AI_TECH_ICONS = {
-  'Artificial Intelligence': '🤖', 'Drone Warfare':     '🚁',
-  'Cyber Security':          '🛡️', 'Space Defence':     '🛸',
-  'Hypersonic':              '🚀', 'Naval Tech':        '⚓',
-  'Missile Systems':         '🎯', 'Electronic Warfare':'📡',
-  'default':                 '⚙️',
-};
-
 // ─── State ────────────────────────────────────────────────────
 const state = {
-  currentSection: 'home',
-  newsLoaded:   false,
-  warsLoaded:   false,
-  sportsLoaded: false,
-  aiLoaded:     false,
+  currentSection:   'home',
+  newsLoaded:       false,
+  knowledgeLoaded:  false,
+  aiNewsLoaded:     false,
+  activeNewsTab:    'national',
+  activeKnowFilter: 'all',
+  allKnowledge:     [],      // full knowledge list cached in memory
+  knowledgeSearch:  '',
 };
 
 // ═══════════════════════════════════════════════════════════════
 // DOM HELPERS
 // ═══════════════════════════════════════════════════════════════
-function getEl(id) { return document.getElementById(id); }
-function $$(sel) { return document.querySelectorAll(sel); }
+const getEl  = id  => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
 
 // ─── Toast ────────────────────────────────────────────────────
 function showToast(message, type = 'info', duration = 4000) {
   const container = getEl('toastContainer');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
@@ -68,17 +58,7 @@ function updateDateTime() {
   if (sd2) sd2.textContent = now.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
 }
 
-// ─── Category tag class ───────────────────────────────────────
-function getCategoryClass(category = '') {
-  const map = {
-    'Defence':'tag-defence','Politics':'tag-politics','Economy':'tag-economy',
-    'Science':'tag-science','Society':'tag-society','Geopolitics':'tag-geopolitics',
-    'Diplomacy':'tag-diplomacy',
-  };
-  return map[category] || 'tag-default';
-}
-
-// ─── Lightweight markdown → HTML ──────────────────────────────
+// ─── Markdown → HTML ──────────────────────────────────────────
 function md2html(text) {
   if (!text) return '';
   return text
@@ -86,35 +66,42 @@ function md2html(text) {
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
     .replace(/^#{1,3}\s+(.+)$/gm, '<strong style="color:var(--khaki-light)">$1</strong>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/<\/li>\n<li>/g, '</li><li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
     .replace(/\n{2,}/g, '<br><br>')
     .replace(/\n/g, '<br>');
 }
 
-function escapeHtml(str) {
+function escHtml(str) {
   if (!str) return '';
   return String(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
-function createSkeletons(count = 3) {
-  return Array(count).fill(0).map(() => `
+function skeletons(n = 3) {
+  return Array(n).fill(0).map(() => `
     <div class="skeleton-card">
       <div class="sk-line sk-title"></div>
-      <div class="sk-line sk-body"></div>
       <div class="sk-line sk-body"></div>
       <div class="sk-line sk-body short"></div>
     </div>`).join('');
 }
 
-function createErrorState(title, detail, retryId) {
+function errorState(title, detail, retryFn) {
   return `
     <div class="error-state">
       <div class="error-state-icon">⚠️</div>
-      <h3>${title}</h3>
-      <p>${detail}</p>
-      <button class="retry-btn" onclick="document.getElementById('${retryId}').click()">Try Again</button>
+      <h3>${escHtml(title)}</h3>
+      <p>${escHtml(detail)}</p>
+      ${retryFn ? `<button class="retry-btn" onclick="${retryFn}()">Try Again</button>` : ''}
     </div>`;
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -122,48 +109,46 @@ function createErrorState(title, detail, retryId) {
 // ═══════════════════════════════════════════════════════════════
 function navigateTo(sectionKey) {
   $$('.nav-item').forEach(item => item.classList.remove('active'));
-  const navItem = document.querySelector(`[data-section="${sectionKey}"]#nav-${sectionKey}`);
+  const navItem = document.querySelector(`[data-section="${sectionKey}"]`);
   if (navItem) navItem.classList.add('active');
 
   $$('.section').forEach(s => s.classList.remove('active'));
   const section = getEl(`section-${sectionKey}`);
   if (section) {
     section.classList.add('active');
-    // Scroll to top of main content when switching sections
-    const main = getEl('mainContent');
-    if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
+    getEl('mainContent')?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const labels = {
-    'home':'Home', 'news':"Today's News",
-    'wars':'War Archive', 'sports':'Sports News', 'ai-warfare':'AI & Warfare',
+    'home':      'Home',
+    'news':      "Today's News",
+    'knowledge': 'War & Defence Knowledge',
+    'ai-news':   'AI News',
   };
   const bc = getEl('breadcrumb');
   if (bc) bc.textContent = labels[sectionKey] || 'Home';
 
   state.currentSection = sectionKey;
 
-  // Lazy-load section data
-  if (sectionKey === 'news'       && !state.newsLoaded)    loadNews();
-  if (sectionKey === 'wars'       && !state.warsLoaded)    loadWars();
-  if (sectionKey === 'sports'     && !state.sportsLoaded)  loadSports();
-  if (sectionKey === 'ai-warfare' && !state.aiLoaded)      loadAIWarfare();
+  // Lazy-load section
+  if (sectionKey === 'news'      && !state.newsLoaded)      loadNews();
+  if (sectionKey === 'knowledge' && !state.knowledgeLoaded) loadKnowledge();
+  if (sectionKey === 'ai-news'   && !state.aiNewsLoaded)    loadAINews();
 
   closeMobileSidebar();
 }
 
 function openMobileSidebar() {
-  getEl('sidebar').classList.add('open');
-  getEl('sidebarOverlay').classList.add('visible');
+  getEl('sidebar')?.classList.add('open');
+  getEl('sidebarOverlay')?.classList.add('visible');
 }
-
 function closeMobileSidebar() {
-  getEl('sidebar').classList.remove('open');
-  getEl('sidebarOverlay').classList.remove('visible');
+  getEl('sidebar')?.classList.remove('open');
+  getEl('sidebarOverlay')?.classList.remove('visible');
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CHAT — defence & politics only
+// CHAT / SEARCH
 // ═══════════════════════════════════════════════════════════════
 async function sendChatMessage(message) {
   if (!message.trim()) return;
@@ -179,7 +164,7 @@ async function sendChatMessage(message) {
     setTimeout(() => welcomePrompts.remove(), 300);
   }
 
-  messagesContainer.appendChild(createChatBubble('user', message, false));
+  messagesContainer.appendChild(createBubble('user', message, false));
 
   const loadingBubble = document.createElement('div');
   loadingBubble.className = 'chat-bubble ai';
@@ -206,34 +191,34 @@ async function sendChatMessage(message) {
     });
     if (!response.ok) throw new Error(`Server error ${response.status}`);
     const text = await response.text();
+
     messagesContainer.removeChild(loadingBubble);
-    messagesContainer.appendChild(createChatBubble('ai', text, true));
+
+    // Detect if it came from local knowledge base or cache
+    const isLocal = text.includes('DefenceAI Knowledge Base') || text.includes('DefenceAI Cache');
+    if (isLocal) showToast('⚡ Answered instantly from knowledge base', 'success', 2500);
+
+    messagesContainer.appendChild(createBubble('ai', text, true));
   } catch (err) {
     messagesContainer.removeChild(loadingBubble);
-    messagesContainer.appendChild(createChatBubble('ai',
-      `⚠️ **Connection Error:** ${err.message}\n\nMake sure the DefenceAI server is running on port 3000.`, true));
-    showToast('Failed to reach AI server', 'error');
+    messagesContainer.appendChild(createBubble('ai',
+      `⚠️ **Error:** ${err.message}\n\nMake sure the DefenceAI server is running.`, true));
+    showToast('Failed to reach server', 'error');
   } finally {
     sendBtn.disabled   = false;
     chatInput.disabled = false;
     chatInput.focus();
-    // Scroll to latest message
     messagesContainer.lastElementChild?.scrollIntoView({ behavior:'smooth', block:'end' });
   }
 }
 
-function createChatBubble(role, content, isMarkdown = false) {
+function createBubble(role, content, isMarkdown = false) {
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${role}`;
-  const avatar  = role === 'user' ? '👤' : '🛡️';
-  const html    = isMarkdown ? md2html(content) : escapeHtml(content);
+  const avatar = role === 'user' ? '👤' : '🛡️';
+  const html   = isMarkdown ? md2html(content) : escHtml(content);
   bubble.innerHTML = `<div class="bubble-avatar">${avatar}</div><div class="bubble-content">${html}</div>`;
   return bubble;
-}
-
-function autoResizeTextarea(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -241,14 +226,14 @@ function autoResizeTextarea(el) {
 // ═══════════════════════════════════════════════════════════════
 async function loadNews(force = false) {
   if (state.newsLoaded && !force) return;
-  const nationalCards  = getEl('nationalCards');
-  const intlCards      = getEl('intlCards');
-  const nationalCount  = getEl('nationalCount');
-  const intlCount      = getEl('intlCount');
 
-  nationalCards.innerHTML = createSkeletons(5);
-  intlCards.innerHTML     = createSkeletons(5);
-  showToast('Loading today\'s news…', 'info', 3000);
+  const nationalCards = getEl('nationalCards');
+  const intlCards     = getEl('intlCards');
+  const countNat      = getEl('tab-count-national');
+  const countIntl     = getEl('tab-count-international');
+
+  if (nationalCards) nationalCards.innerHTML = skeletons(4);
+  if (intlCards)     intlCards.innerHTML     = skeletons(4);
 
   try {
     const res  = await fetch(`${API_BASE}/api/news`);
@@ -257,269 +242,320 @@ async function loadNews(force = false) {
     if (!json.success) throw new Error(json.error || 'Unknown error');
 
     const { national = [], international = [] } = json.data;
-    const src = json.source === 'gemini' ? '🤖 AI Generated' : '📚 Curated';
 
-    nationalCards.innerHTML = '';
-    intlCards.innerHTML     = '';
-    national.forEach((item, idx)      => nationalCards.appendChild(createNewsCard(item, idx, 'national')));
-    international.forEach((item, idx) => intlCards.appendChild(createNewsCard(item, idx, 'intl')));
+    if (nationalCards) {
+      nationalCards.innerHTML = '';
+      if (national.length === 0) {
+        nationalCards.innerHTML = `<div class="empty-state">No national news available yet. Check back after 6 PM IST.</div>`;
+      } else {
+        national.forEach((item, idx) => nationalCards.appendChild(createNewsCard(item, idx, 'nat')));
+      }
+    }
 
-    if (nationalCount) nationalCount.textContent = `${national.length} stories · ${src}`;
-    if (intlCount)     intlCount.textContent     = `${international.length} stories · ${src}`;
+    if (intlCards) {
+      intlCards.innerHTML = '';
+      if (international.length === 0) {
+        intlCards.innerHTML = `<div class="empty-state">No international news available yet. Check back after 6 PM IST.</div>`;
+      } else {
+        international.forEach((item, idx) => intlCards.appendChild(createNewsCard(item, idx, 'intl')));
+      }
+    }
+
+    if (countNat)  countNat.textContent  = `(${national.length})`;
+    if (countIntl) countIntl.textContent = `(${international.length})`;
+
+    // Update stat
+    const statNews = getEl('statNewsCount');
+    if (statNews) statNews.textContent = national.length + international.length;
 
     state.newsLoaded = true;
-    showToast(`Loaded ${national.length + international.length} news stories`, json.source === 'gemini' ? 'success' : 'info');
+    if (json.message) showToast(json.message, 'info');
+    else showToast(`${national.length + international.length} news stories loaded`, 'success', 2500);
+
   } catch (err) {
-    nationalCards.innerHTML = createErrorState('National news unavailable', err.message, 'refreshNews');
-    intlCards.innerHTML     = createErrorState('International news unavailable', err.message, 'refreshNews');
+    if (nationalCards) nationalCards.innerHTML = `<div class="error-state"><div class="error-state-icon">⚠️</div><h3>News unavailable</h3><p>${escHtml(err.message)}</p><button class="retry-btn" onclick="loadNews(true)">Retry</button></div>`;
+    if (intlCards)     intlCards.innerHTML     = `<div class="error-state"><div class="error-state-icon">⚠️</div><h3>News unavailable</h3><p>${escHtml(err.message)}</p></div>`;
     showToast('Failed to load news: ' + err.message, 'error');
   }
 }
 
 function createNewsCard(item, index, type) {
-  const card = document.createElement('div');
+  const card = document.createElement('article');
   card.className = 'news-card';
   card.style.animationDelay = `${index * 0.05}s`;
-  const catClass = getCategoryClass(item.category);
-  const cardId   = `news-${type}-${item.id || index}`;
+
+  const cardId = `nc-${type}-${item.id || index}`;
+  const time   = item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+
   card.innerHTML = `
-    <div class="news-card-header">
+    <div class="news-card-content">
       <div class="news-card-meta">
-        <span class="news-category-tag ${catClass}">${escapeHtml(item.category || 'General')}</span>
-        <span class="importance-dot imp-${item.importance || 'Low'}"></span>
-        ${item.importance === 'High' ? '<span style="font-size:10px;color:var(--danger);font-weight:700;">HIGH</span>' : ''}
+        <span class="news-source-badge">${escHtml(item.source || 'DefenceAI')}</span>
+        ${time ? `<span class="news-time">🕐 ${time}</span>` : ''}
+        <span class="news-cat-chip news-cat-${item.category}">${item.category === 'national' ? '🇮🇳 National' : '🌍 International'}</span>
       </div>
-      <div class="news-card-title">${escapeHtml(item.title || 'Untitled')}</div>
-      <div class="news-card-summary">${escapeHtml(item.summary || '')}</div>
-    </div>
-    <button class="news-breakdown-toggle" id="btn-${cardId}" onclick="toggleBreakdown('${cardId}')">
-      <span>📖 Read Detailed Breakdown</span>
-      <svg class="breakdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <div class="news-breakdown-body" id="body-${cardId}">
-      <div class="breakdown-content">${md2html(item.breakdown || 'No breakdown available.')}</div>
+      <h3 class="news-card-title">${escHtml(item.title || 'Untitled')}</h3>
+      <p class="news-card-summary">${escHtml(item.summary || '')}</p>
     </div>`;
   return card;
 }
 
-function toggleBreakdown(cardId) {
-  const btn  = getEl(`btn-${cardId}`);
-  const body = getEl(`body-${cardId}`);
-  if (!btn || !body) return;
-  const isOpen = body.classList.contains('open');
-  body.classList.toggle('open', !isOpen);
-  btn.classList.toggle('open', !isOpen);
-  btn.querySelector('span').textContent = isOpen ? '📖 Read Detailed Breakdown' : '📕 Hide Breakdown';
+// ─── News Tabs ────────────────────────────────────────────────
+function switchNewsTab(tab) {
+  state.activeNewsTab = tab;
+  $$('.news-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  $$('.news-tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-content-${tab}`));
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WAR ARCHIVE LOADER — served from static data, instant
+// KNOWLEDGE LOADER
 // ═══════════════════════════════════════════════════════════════
-async function loadWars(force = false) {
-  if (state.warsLoaded && !force) return;
-  const timeline = getEl('warsTimeline');
-  timeline.innerHTML = createSkeletons(4);
+async function loadKnowledge(force = false) {
+  if (state.knowledgeLoaded && !force) return;
+
+  const grid = getEl('knowledgeGrid');
+  if (grid) grid.innerHTML = skeletons(6);
 
   try {
-    const res  = await fetch(`${API_BASE}/api/wars`);
+    const res  = await fetch(`${API_BASE}/api/knowledge`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Unknown error');
 
-    const { wars = [] } = json.data;
-    timeline.innerHTML = '';
-    wars.forEach((war, idx) => timeline.appendChild(createWarCard(war, idx)));
-    state.warsLoaded = true;
-    showToast(`${wars.length} conflicts loaded`, 'success');
+    state.allKnowledge = json.flat || [];
+    state.knowledgeLoaded = true;
+
+    // Update stat
+    const statK = getEl('statKnowledgeCount');
+    if (statK) statK.textContent = state.allKnowledge.length;
+
+    renderKnowledge();
+    showToast(`${state.allKnowledge.length} knowledge entries loaded`, 'success', 2500);
+
   } catch (err) {
-    timeline.innerHTML = createErrorState('War archive unavailable', err.message, 'refreshWars');
-    showToast('Failed to load war archive: ' + err.message, 'error');
+    if (grid) grid.innerHTML = `<div class="error-state"><div class="error-state-icon">⚠️</div><h3>Knowledge base unavailable</h3><p>${escHtml(err.message)}</p><button class="retry-btn" onclick="loadKnowledge(true)">Retry</button></div>`;
+    showToast('Failed to load knowledge base: ' + err.message, 'error');
   }
 }
 
-function createWarCard(war, index) {
-  const card = document.createElement('div');
-  card.className = 'war-card';
+function renderKnowledge() {
+  const grid   = getEl('knowledgeGrid');
+  if (!grid) return;
+
+  const search = state.knowledgeSearch.toLowerCase();
+  const filter = state.activeKnowFilter;
+
+  let items = state.allKnowledge;
+
+  // Category filter
+  if (filter !== 'all') {
+    items = items.filter(i => i.category === filter);
+  }
+
+  // Text search
+  if (search) {
+    items = items.filter(i =>
+      i.title.toLowerCase().includes(search)      ||
+      i.summary.toLowerCase().includes(search)    ||
+      (i.outcome      || '').toLowerCase().includes(search) ||
+      (i.significance || '').toLowerCase().includes(search) ||
+      (i.sub_category || '').toLowerCase().includes(search)
+    );
+  }
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty-state">No results found for "${escHtml(state.knowledgeSearch)}". Try a different keyword.</div>`;
+    return;
+  }
+
+  grid.innerHTML = '';
+  items.forEach((item, idx) => grid.appendChild(createKnowledgeCard(item, idx)));
+}
+
+const CAT_LABELS = {
+  wars:             '⚔️ Major War',
+  conflicts:        '🔥 Conflict',
+  operations:       '🎯 Military Operation',
+  humanitarian:     '🤝 Humanitarian Op',
+  un_missions:      '🌐 UN Mission',
+  defence_programs: '🛡️ Defence Program',
+};
+
+function createKnowledgeCard(item, index) {
+  const card = document.createElement('article');
+  card.className = 'knowledge-card';
+  card.style.animationDelay = `${index * 0.04}s`;
+
+  const catLabel = CAT_LABELS[item.category] || item.category;
+  const subLabel = item.sub_category ? item.sub_category.replace(/_/g, ' ') : '';
+
+  card.innerHTML = `
+    <div class="kcard-header">
+      <div class="kcard-meta">
+        <span class="kcat-badge kcat-${item.category}">${catLabel}</span>
+        ${subLabel ? `<span class="ksubcat-badge">${escHtml(subLabel)}</span>` : ''}
+      </div>
+      <h3 class="kcard-title">${escHtml(item.title)}</h3>
+      ${item.timeline ? `<div class="kcard-timeline">📅 ${escHtml(item.timeline)}</div>` : ''}
+    </div>
+    <p class="kcard-summary">${escHtml(item.summary)}</p>
+    <button class="kcard-expand-btn" onclick="openKnowledgeModal('${escHtml(item.slug)}')">
+      📖 View Full Details
+      <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`;
+  return card;
+}
+
+function openKnowledgeModal(slug) {
+  const item = state.allKnowledge.find(i => i.slug === slug);
+  if (!item) return;
+
+  const modal   = getEl('knowledgeModal');
+  const body    = getEl('modalBody');
+  if (!modal || !body) return;
+
+  let proIndia = [], proOpponent = [];
+  try { proIndia    = JSON.parse(item.countries_supporting_india    || '[]'); } catch (_) {}
+  try { proOpponent = JSON.parse(item.countries_supporting_opponent || '[]'); } catch (_) {}
+
+  const keyFacts = Array.isArray(item.key_facts) ? item.key_facts : [];
+
+  body.innerHTML = `
+    <div class="modal-cat-badge kcat-${item.category}">${CAT_LABELS[item.category] || item.category}</div>
+    <h2 class="modal-title">${escHtml(item.title)}</h2>
+    ${item.timeline ? `<div class="modal-timeline">📅 ${escHtml(item.timeline)}</div>` : ''}
+
+    <div class="modal-section">
+      <div class="modal-section-title">📋 Overview</div>
+      <p>${escHtml(item.summary)}</p>
+    </div>
+
+    ${keyFacts.length ? `
+    <div class="modal-section">
+      <div class="modal-section-title">🔑 Key Facts</div>
+      <ul class="modal-facts-list">
+        ${keyFacts.map(f => `<li>${escHtml(f)}</li>`).join('')}
+      </ul>
+    </div>` : ''}
+
+    ${item.outcome ? `
+    <div class="modal-section">
+      <div class="modal-section-title">🏁 Outcome</div>
+      <p>${escHtml(item.outcome)}</p>
+    </div>` : ''}
+
+    ${item.significance ? `
+    <div class="modal-section">
+      <div class="modal-section-title">💡 Strategic Significance</div>
+      <p>${escHtml(item.significance)}</p>
+    </div>` : ''}
+
+    ${proIndia.length || proOpponent.length ? `
+    <div class="modal-alliances">
+      ${proIndia.length ? `
+      <div class="alliance-block pro-india">
+        <div class="alliance-block-title">🤝 Countries Supporting India</div>
+        ${proIndia.map(c => `
+          <div class="alliance-item">
+            <span class="alliance-country">🏳️ ${escHtml(c.country)}</span>
+            <span class="alliance-support">${escHtml(c.support)}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+      ${proOpponent.length ? `
+      <div class="alliance-block pro-opponent">
+        <div class="alliance-block-title">⚔️ Countries Supporting Opponent</div>
+        ${proOpponent.map(c => `
+          <div class="alliance-item">
+            <span class="alliance-country">🏳️ ${escHtml(c.country)}</span>
+            <span class="alliance-support">${escHtml(c.support)}</span>
+          </div>`).join('')}
+      </div>` : ''}
+    </div>` : ''}
+
+    <div class="modal-footer-note">
+      📚 Source: DefenceAI Knowledge Base — Instant result, no AI call made.
+    </div>`;
+
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeKnowledgeModal() {
+  getEl('knowledgeModal')?.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI NEWS LOADER
+// ═══════════════════════════════════════════════════════════════
+async function loadAINews(force = false) {
+  if (state.aiNewsLoaded && !force) return;
+
+  const grid = getEl('aiNewsGrid');
+  if (grid) grid.innerHTML = skeletons(4);
+
+  try {
+    const res  = await fetch(`${API_BASE}/api/ai-news`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Unknown error');
+
+    const items = json.data || [];
+
+    if (grid) {
+      grid.innerHTML = '';
+      if (items.length === 0) {
+        grid.innerHTML = `<div class="empty-state">No AI news available yet. The 48-hour cron job hasn't run yet.</div>`;
+      } else {
+        items.forEach((item, idx) => grid.appendChild(createAINewsCard(item, idx)));
+      }
+    }
+
+    state.aiNewsLoaded = true;
+    if (json.message) showToast(json.message, 'info');
+    else showToast(`${items.length} AI news stories loaded`, 'success', 2500);
+
+  } catch (err) {
+    if (grid) grid.innerHTML = `<div class="error-state"><div class="error-state-icon">⚠️</div><h3>AI news unavailable</h3><p>${escHtml(err.message)}</p><button class="retry-btn" onclick="loadAINews(true)">Retry</button></div>`;
+    showToast('Failed to load AI news: ' + err.message, 'error');
+  }
+}
+
+function createAINewsCard(item, index) {
+  const card = document.createElement('article');
+  card.className = 'ai-news-card';
   card.style.animationDelay = `${index * 0.06}s`;
-  card.id = `war-card-${war.id || index}`;
 
-  const proIndia = (war.alliances?.proIndia || []).map(a => `
-    <div class="alliance-item">
-      <span class="alliance-country">🏳️ ${escapeHtml(a.country)}</span>
-      <span class="alliance-support">${escapeHtml(a.support)}</span>
-    </div>`).join('') || '<div class="alliance-item"><span class="alliance-support">Fought primarily independently</span></div>';
-
-  const proOpponent = (war.alliances?.proOpponent || []).map(a => `
-    <div class="alliance-item">
-      <span class="alliance-country">🏳️ ${escapeHtml(a.country)}</span>
-      <span class="alliance-support">${escapeHtml(a.support)}</span>
-    </div>`).join('') || '<div class="alliance-item"><span class="alliance-support">No major external allies</span></div>';
-
-  const keyBattles = (war.keyBattles || []).map(b => `<span class="battle-chip">⚔️ ${escapeHtml(b)}</span>`).join('');
+  const time = item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
 
   card.innerHTML = `
-    <div class="war-card-header" onclick="toggleWarCard('war-card-${war.id || index}')">
-      <div class="war-year-badge">
-        <div class="war-year">${escapeHtml(String(war.year || ''))}</div>
-        <div class="war-duration">${escapeHtml(war.duration || '')}</div>
+    <div class="ai-news-icon">🤖</div>
+    <div class="ai-news-body">
+      <div class="ai-news-meta">
+        <span class="ai-news-source">${escHtml(item.source || 'AI News')}</span>
+        ${time ? `<span class="news-time">🕐 ${time}</span>` : ''}
       </div>
-      <div class="war-card-info">
-        <div class="war-name">${escapeHtml(war.name || 'Unknown Conflict')}</div>
-        <div class="war-combatants">
-          <span class="combatant-tag tag-india">🇮🇳 India</span>
-          <span class="vs-text">VS</span>
-          <span class="combatant-tag tag-opponent">⚔️ ${escapeHtml(war.combatants?.opponent || 'Opponent')}</span>
-        </div>
-        <div class="war-outcome">🏁 <strong>Outcome:</strong> ${escapeHtml(war.outcome || 'See details')}</div>
-      </div>
-      <svg class="war-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="6 9 12 15 18 9"></polyline>
-      </svg>
-    </div>
-    <div class="war-card-body">
-      <div class="war-details">
-        <div class="war-detail-block">
-          <div class="detail-label">🔍 Root Cause</div>
-          <div class="detail-content">${md2html(war.rootCause || 'Information unavailable.')}</div>
-        </div>
-        <div class="war-detail-block">
-          <div class="detail-label">💀 Casualties</div>
-          <div class="detail-content">${escapeHtml(war.casualties || 'Not available')}</div>
-          <div class="detail-label" style="margin-top:12px;">📚 Significance</div>
-          <div class="detail-content">${md2html(war.significance || '')}</div>
-        </div>
-        <div class="alliances-section">
-          <div class="alliance-block pro-india">
-            <div class="alliance-block-title">🤝 Who Supported India & How</div>
-            <div class="alliance-list">${proIndia}</div>
-          </div>
-          <div class="alliance-block pro-opponent">
-            <div class="alliance-block-title">⚔️ Who Supported the Opponent & How</div>
-            <div class="alliance-list">${proOpponent}</div>
-          </div>
-        </div>
-        ${keyBattles ? `<div class="war-detail-block" style="grid-column:1/-1;">
-          <div class="detail-label">⚔️ Key Battles & Operations</div>
-          <div class="key-battles">${keyBattles}</div>
-        </div>` : ''}
-      </div>
+      <h3 class="ai-news-title">${escHtml(item.title || 'Untitled')}</h3>
+      <p class="ai-news-summary">${escHtml(item.summary || '')}</p>
     </div>`;
   return card;
 }
 
-function toggleWarCard(cardId) {
-  const card = getEl(cardId);
-  if (card) card.classList.toggle('expanded');
-}
-
 // ═══════════════════════════════════════════════════════════════
-// SPORTS LOADER
+// STATS LOADER (for home page)
 // ═══════════════════════════════════════════════════════════════
-async function loadSports(force = false) {
-  if (state.sportsLoaded && !force) return;
-  const grid = getEl('sportsGrid');
-  grid.innerHTML = createSkeletons(4);
-  showToast('Loading sports news…', 'info', 2000);
-
+async function loadStats() {
   try {
-    const res  = await fetch(`${API_BASE}/api/sports`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res  = await fetch(`${API_BASE}/api/status`);
+    if (!res.ok) return;
     const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'Unknown error');
-    const { sports = [] } = json.data;
-    grid.innerHTML = '';
-    sports.forEach((item, idx) => grid.appendChild(createSportCard(item, idx)));
-    state.sportsLoaded = true;
-    showToast(`${sports.length} sports stories loaded`, 'info');
-  } catch (err) {
-    grid.innerHTML = createErrorState('Sports news unavailable', err.message, 'refreshSports');
-    showToast('Failed to load sports: ' + err.message, 'error');
-  }
-}
 
-function createSportCard(item, index) {
-  const card = document.createElement('div');
-  card.className = 'sport-card';
-  card.style.animationDelay = `${index * 0.07}s`;
-  const icon   = SPORT_ICONS[item.sport] || SPORT_ICONS['default'];
-  const cardId = `sport-${item.id || index}`;
-  card.innerHTML = `
-    <div class="sport-card-top">
-      <div class="sport-icon-block">${icon}</div>
-      <div class="sport-info">
-        <div class="sport-type-badge">${escapeHtml(item.sport || 'Sports')}</div>
-        <div class="sport-card-title">${escapeHtml(item.title || 'Update')}</div>
-        <div class="sport-summary">${escapeHtml(item.summary || '')}</div>
-      </div>
-    </div>
-    <button class="sport-breakdown-btn" onclick="toggleSportBreakdown('${cardId}')">
-      <span>📖 Read Detailed Breakdown</span>
-      <svg class="breakdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <div class="sport-breakdown-body" id="body-${cardId}">
-      <div class="sport-breakdown-content">${md2html(item.breakdown || 'No breakdown available.')}</div>
-    </div>`;
-  return card;
-}
-
-function toggleSportBreakdown(cardId) {
-  const body = getEl(`body-${cardId}`);
-  if (body) body.classList.toggle('open');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// AI WARFARE LOADER
-// ═══════════════════════════════════════════════════════════════
-async function loadAIWarfare(force = false) {
-  if (state.aiLoaded && !force) return;
-  const grid = getEl('aiWarfareGrid');
-  grid.innerHTML = createSkeletons(4);
-  showToast('Loading AI & warfare news…', 'info', 2000);
-
-  try {
-    const res  = await fetch(`${API_BASE}/api/ai-warfare`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'Unknown error');
-    const { aiWarfare = [] } = json.data;
-    grid.innerHTML = '';
-    aiWarfare.forEach((item, idx) => grid.appendChild(createAIWarfareCard(item, idx)));
-    state.aiLoaded = true;
-    showToast(`${aiWarfare.length} AI warfare stories loaded`, 'info');
-  } catch (err) {
-    grid.innerHTML = createErrorState('AI warfare news unavailable', err.message, 'refreshAI');
-    showToast('Failed to load AI warfare news: ' + err.message, 'error');
-  }
-}
-
-function createAIWarfareCard(item, index) {
-  const card = document.createElement('div');
-  card.className = 'ai-card';
-  card.style.animationDelay = `${index * 0.07}s`;
-  const icon   = AI_TECH_ICONS[item.techCategory] || AI_TECH_ICONS['default'];
-  const cardId = `ai-${item.id || index}`;
-  card.innerHTML = `
-    <div class="ai-card-top">
-      <div class="ai-tech-icon">${icon}</div>
-      <div class="ai-card-info">
-        <div class="ai-tech-category">${escapeHtml(item.techCategory || 'Technology')}</div>
-        <div class="ai-card-title">${escapeHtml(item.title || 'Tech Update')}</div>
-        <div class="ai-summary">${escapeHtml(item.summary || '')}</div>
-      </div>
-    </div>
-    <button class="ai-breakdown-btn" onclick="toggleAIBreakdown('${cardId}')">
-      <span>🔍 Read Detailed Analysis</span>
-      <svg class="breakdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <div class="ai-breakdown-body" id="body-${cardId}">
-      <div class="ai-breakdown-content">${md2html(item.breakdown || 'No analysis available.')}</div>
-    </div>`;
-  return card;
-}
-
-function toggleAIBreakdown(cardId) {
-  const body = getEl(`body-${cardId}`);
-  if (body) body.classList.toggle('open');
+    const statNews = getEl('statNewsCount');
+    const statK    = getEl('statKnowledgeCount');
+    if (statNews && json.newsToday) statNews.textContent = json.newsToday;
+    if (statK    && json.knowledge) statK.textContent    = json.knowledge;
+  } catch (_) {}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -527,17 +563,16 @@ function toggleAIBreakdown(cardId) {
 // ═══════════════════════════════════════════════════════════════
 function globalRefresh() {
   const s = state.currentSection;
-  if (s === 'news')       { state.newsLoaded    = false; loadNews(); }
-  else if (s === 'wars')  { state.warsLoaded    = false; loadWars(); }
-  else if (s === 'sports'){ state.sportsLoaded  = false; loadSports(); }
-  else if (s === 'ai-warfare') { state.aiLoaded = false; loadAIWarfare(); }
+  if (s === 'news')      { state.newsLoaded      = false; loadNews(); }
+  if (s === 'knowledge') { state.knowledgeLoaded = false; loadKnowledge(); }
+  if (s === 'ai-news')   { state.aiNewsLoaded    = false; loadAINews(); }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════════
 function initEventListeners() {
-  // Nav items
+  // Navigation
   $$('.nav-item[data-section]').forEach(item => {
     item.addEventListener('click', e => {
       e.preventDefault();
@@ -576,18 +611,43 @@ function initEventListeners() {
     });
   });
 
-  // Refresh buttons
-  getEl('refreshNews')?.addEventListener('click',    () => { state.newsLoaded    = false; loadNews(); });
-  getEl('refreshSports')?.addEventListener('click',  () => { state.sportsLoaded  = false; loadSports(); });
-  getEl('refreshAI')?.addEventListener('click',      () => { state.aiLoaded      = false; loadAIWarfare(); });
-  getEl('globalRefresh')?.addEventListener('click',  globalRefresh);
+  // News tabs
+  $$('.news-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchNewsTab(tab.dataset.tab));
+  });
 
-  // Wars filter buttons (visual only)
-  $$('.filter-btn').forEach(btn => {
+  // Refresh buttons
+  getEl('refreshNews')?.addEventListener('click',  () => { state.newsLoaded    = false; loadNews(); });
+  getEl('refreshAI')?.addEventListener('click',    () => { state.aiNewsLoaded  = false; loadAINews(); });
+  getEl('globalRefresh')?.addEventListener('click', globalRefresh);
+
+  // Knowledge search (debounced)
+  let searchTimeout = null;
+  getEl('knowledgeSearch')?.addEventListener('input', e => {
+    state.knowledgeSearch = e.target.value;
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      if (state.knowledgeLoaded) renderKnowledge();
+    }, 250);
+  });
+
+  // Knowledge category filters
+  $$('.kfilter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      $$('.filter-btn').forEach(b => b.classList.remove('active'));
+      $$('.kfilter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      state.activeKnowFilter = btn.dataset.cat;
+      if (state.knowledgeLoaded) renderKnowledge();
     });
+  });
+
+  // Knowledge modal close
+  getEl('modalClose')?.addEventListener('click', closeKnowledgeModal);
+  getEl('knowledgeModal')?.addEventListener('click', e => {
+    if (e.target.id === 'knowledgeModal') closeKnowledgeModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeKnowledgeModal();
   });
 }
 
@@ -599,16 +659,20 @@ function init() {
   setInterval(updateDateTime, 30000);
   initEventListeners();
 
-  // Pre-load news in background after 1.5s
+  // Load stats for home page
+  loadStats();
+
+  // Pre-load news in background after short delay
   setTimeout(() => loadNews(), 1500);
 
-  showToast('🛡️ DefenceAI ready. Ask anything about defence or geopolitics!', 'info', 4000);
+  showToast('🛡️ DefenceAI ready. Known topics load instantly!', 'info', 4000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
 
-// Expose globals for inline onclick handlers
-window.toggleBreakdown      = toggleBreakdown;
-window.toggleWarCard        = toggleWarCard;
-window.toggleSportBreakdown = toggleSportBreakdown;
-window.toggleAIBreakdown    = toggleAIBreakdown;
+// ─── Global function exposures (for inline onclick) ───────────
+window.loadNews        = loadNews;
+window.loadKnowledge   = loadKnowledge;
+window.loadAINews      = loadAINews;
+window.openKnowledgeModal = openKnowledgeModal;
+window.closeKnowledgeModal = closeKnowledgeModal;

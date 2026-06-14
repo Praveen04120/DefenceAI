@@ -1775,3 +1775,93 @@ textarea { font-family: inherit; resize: none; border: none; outline: none; back
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------
+   DefenceAI v3.0 — New Section Styles
+--------------------------------------------------------------- */
+.nav-badge { font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 9999px; background: #3a5230; color: #7aad3a; letter-spacing: 0.5px; margin-left: auto; }
+.nav-badge.live { background: rgba(168,66,66,0.3); color: #e06060; animation: pulseBadge 2s ease infinite; }
+@keyframes pulseBadge { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.news-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid rgba(168,192,162,0.1); }
+.news-tab { padding: 12px 20px; font-family: 'Rajdhani',sans-serif; font-size: 0.875rem; font-weight: 600; color: #a8c0a2; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.25s ease; display: flex; align-items: center; gap: 8px; margin-bottom: -1px; }
+.news-tab:hover { color: #e8f0e4; background: #213f23; border-radius: 10px 10px 0 0; }
+.news-tab.active { color: #7aad3a; border-bottom-color: #7aad3a; }
+.tab-count { font-size: 11px; opacity: 0.7; }
+.news-tab-content { display: none; }
+.news-tab-content.active { display: block; animation: fadeSlide 0.2s ease; }
+@keyframes fadeSlide { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+@keyframes cardFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.news-cards-list { display: flex; flex-direction: column; gap: 12px; }
+.news-card { background: linear-gradient(135deg,#162d18,#1c361e); border: 1px solid rgba(168,192,162,0.1); border-radius: 14px; padding: 16px 20px; transition: border-color 0.25s,transform 0.15s; animation: cardFadeIn 0.3s ease both; }
+.news-card:hover { border-color: rgba(122,173,58,0.4); transform: translateX(3px); }
+.news-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.news-source-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: #1c361e; color: #7aad3a; border: 1px solid rgba(122,173,58,0.3); text-transform: uppercase; letter-spacing: 0.5px; }
+.news-time { font-size: 11px; color: #6b8a65; }
+.news-cat-chip { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; margin-left: auto; }
+.news-cat-national { background: rgba(58,122,181,0.2); color: #7ab0e0; border: 1px solid rgba(58,122,181,0.3); }
+.news-cat-international { background: rgba(122,173,58,0.15); color: #7aad3a; border: 1px solid rgba(122,173,58,0.3); }
+.news-card-title { font-family: 'Rajdhani',sans-serif; font-size: 1rem; font-weight: 600; color: #e8f0e4; margin-bottom: 8px; line-height: 1.4; }
+.news-card-summary { font-size: 0.875rem; color: #a8c0a2; line-height: 1.6; }
+.knowledge-search-bar { display: flex; align-items: center; gap: 12px; background: #162d18; border: 1px solid rgba(122,173,58,0.2); border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; transition: border-color 0.25s,box-shadow 0.25s; }
+.knowledge-search-bar:focus-within { border-color: #7aad3a; box-shadow: 0 0 0 3px rgba(122,173,58,0.15); }
+.knowledge-search-bar svg { color: #6b8a65; flex-shrink: 0; }
+.knowledge-search-bar input { background: transparent; border: none; outline: none; color: #e8f0e4; font-size: 0.875rem; width: 100%; font-family: 'Inter',sans-serif; }
+.knowledge-search-bar input::placeholder { color: #6b8a65; }
+.knowledge-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.kfilter-btn { padding: 8px 16px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: #a8c0a2; background: #162d18; border: 1px solid rgba(168,192,162,0.1); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.kfilter-btn:hover { color: #e8f0e4; border-color: rgba(122,173,58,0.4); background: #213f23; }
+.kfilter-btn.active { background: rgba(122,173,58,0.15); border-color: rgba(122,173,58,0.3); color: #7aad3a; }
+.knowledge-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap: 16px; }
+.knowledge-card { background: linear-gradient(135deg,#162d18,#1c361e); border: 1px solid rgba(168,192,162,0.1); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: all 0.25s; animation: cardFadeIn 0.3s ease both; }
+.knowledge-card:hover { border-color: rgba(122,173,58,0.4); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+.kcard-header { display: flex; flex-direction: column; gap: 8px; }
+.kcard-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kcat-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; }
+.kcat-wars { background: rgba(168,66,66,0.2); color: #e08080; border: 1px solid rgba(168,66,66,0.3); }
+.kcat-conflicts { background: rgba(200,140,50,0.2); color: #e0a060; border: 1px solid rgba(200,140,50,0.3); }
+.kcat-operations { background: rgba(58,122,181,0.2); color: #7ab0e0; border: 1px solid rgba(58,122,181,0.3); }
+.kcat-humanitarian { background: rgba(80,160,80,0.2); color: #7aca7a; border: 1px solid rgba(80,160,80,0.3); }
+.kcat-un_missions { background: rgba(100,100,200,0.2); color: #a0a0e8; border: 1px solid rgba(100,100,200,0.3); }
+.kcat-defence_programs { background: rgba(122,173,58,0.2); color: #7aad3a; border: 1px solid rgba(122,173,58,0.3); }
+.ksubcat-badge { font-size: 10px; padding: 2px 7px; border-radius: 9999px; background: #1c361e; color: #6b8a65; text-transform: capitalize; border: 1px solid rgba(168,192,162,0.1); }
+.kcard-title { font-family: 'Rajdhani',sans-serif; font-size: 1.125rem; font-weight: 700; color: #e8f0e4; line-height: 1.3; }
+.kcard-timeline { font-size: 0.75rem; color: #c8b878; font-weight: 500; }
+.kcard-summary { font-size: 0.875rem; color: #a8c0a2; line-height: 1.6; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.kcard-expand-btn { display: flex; align-items: center; gap: 8px; color: #7aad3a; font-size: 0.875rem; font-weight: 600; background: transparent; border: 1px solid rgba(122,173,58,0.3); border-radius: 10px; padding: 8px 12px; cursor: pointer; transition: all 0.15s; margin-top: auto; }
+.kcard-expand-btn:hover { background: rgba(122,173,58,0.15); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); backdrop-filter: blur(6px); z-index: 500; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; opacity: 0; pointer-events: none; transition: opacity 0.25s; overflow-y: auto; }
+.modal-overlay.active { opacity: 1; pointer-events: all; }
+.modal-container { background: #0f2210; border: 1px solid rgba(122,173,58,0.2); border-radius: 20px; padding: 32px; max-width: 780px; width: 100%; position: relative; animation: modalSlide 0.3s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+@keyframes modalSlide { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 50%; background: #1c361e; border: 1px solid rgba(168,192,162,0.1); color: #a8c0a2; font-size: 0.875rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.modal-close:hover { background: #213f23; color: #e8f0e4; }
+.modal-cat-badge { display: inline-flex; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 9999px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.modal-title { font-family: 'Rajdhani',sans-serif; font-size: 1.5rem; font-weight: 700; color: #e8f0e4; margin-bottom: 8px; line-height: 1.3; }
+.modal-timeline { font-size: 0.875rem; color: #c8b878; font-weight: 500; margin-bottom: 20px; }
+.modal-section { margin-bottom: 20px; padding: 16px; background: #162d18; border-radius: 10px; border: 1px solid rgba(168,192,162,0.1); }
+.modal-section-title { font-size: 0.875rem; font-weight: 700; color: #7aad3a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.modal-section p { font-size: 0.875rem; color: #a8c0a2; line-height: 1.7; }
+.modal-facts-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.modal-facts-list li { font-size: 0.875rem; color: #a8c0a2; line-height: 1.6; padding-left: 20px; position: relative; }
+.modal-facts-list li::before { content: '?'; color: #7aad3a; position: absolute; left: 0; }
+.modal-alliances { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.modal-footer-note { font-size: 11px; color: #6b8a65; text-align: center; padding-top: 16px; border-top: 1px solid rgba(168,192,162,0.1); margin-top: 16px; }
+.ai-news-grid { display: flex; flex-direction: column; gap: 12px; }
+.ai-news-card { display: flex; gap: 16px; background: linear-gradient(135deg,#162d18,#1c361e); border: 1px solid rgba(168,192,162,0.1); border-radius: 14px; padding: 16px 20px; transition: all 0.25s; animation: cardFadeIn 0.3s ease both; }
+.ai-news-card:hover { border-color: rgba(122,173,58,0.4); transform: translateX(3px); }
+.ai-news-icon { font-size: 1.8rem; flex-shrink: 0; width: 48px; height: 48px; background: #1c361e; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.ai-news-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.ai-news-meta { display: flex; align-items: center; gap: 12px; }
+.ai-news-source { font-size: 11px; font-weight: 700; color: #7aad3a; text-transform: uppercase; letter-spacing: 0.5px; }
+.ai-news-title { font-family: 'Rajdhani',sans-serif; font-size: 1rem; font-weight: 600; color: #e8f0e4; line-height: 1.4; }
+.ai-news-summary { font-size: 0.875rem; color: #a8c0a2; line-height: 1.6; }
+.empty-state { text-align: center; padding: 48px 24px; color: #6b8a65; font-size: 0.875rem; background: #162d18; border-radius: 14px; border: 1px dashed rgba(168,192,162,0.1); }
+@media (max-width: 768px) {
+  .knowledge-grid { grid-template-columns: 1fr; }
+  .modal-alliances { grid-template-columns: 1fr; }
+  .modal-container { padding: 20px; }
+  .kfilter-btn { font-size: 10px; padding: 4px 12px; }
+  .ai-news-card { flex-direction: column; }
+  .ai-news-icon { width: 36px; height: 36px; font-size: 1.3rem; }
+  .news-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
